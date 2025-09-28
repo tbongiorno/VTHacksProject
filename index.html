@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Financial Paycheck Budgeter</title>
+
+    <!-- Tailwind CDN (quick start) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Custom styles: accessible focus outlines, high-contrast mode, chat window */
+        :root {
+            --accent-1: #2563eb;
+            /* blue */
+            --accent-2: #f97316;
+            /* orange */
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --muted: #6b7280;
+        }
+
+        body.high-contrast {
+            --accent-1: #000000;
+            --accent-2: #ffffff;
+            --bg: #000000;
+            --card: #111111;
+            --muted: #d1d5db;
+        }
+
+        /* Respect user reduced-motion */
+        @media (prefers-reduced-motion: reduce) {
+            .animate-float {
+                animation: none !important;
+                transform: none !important;
+            }
+        }
+
+        /* Chat launcher */
+        .chat-launcher {
+            width: 64px;
+            height: 64px;
+            border-radius: 9999px;
+            box-shadow: 0 8px 28px rgba(2, 6, 23, 0.2);
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: transform .12s ease, box-shadow .12s ease;
+            outline: none;
+        }
+
+        .chat-window {
+            width: 380px;
+            max-width: calc(100vw - 32px);
+            height: 560px;
+            display: flex;
+            flex-direction: column;
+            background: var(--card);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(2, 6, 23, 0.25);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .msg {
+            max-width: 82%;
+            padding: 10px 14px;
+            border-radius: 12px;
+            line-height: 1.25;
+        }
+
+        .msg.user {
+            align-self: flex-end;
+            background: #DCFCE7;
+            color: #052e16;
+            border-bottom-right-radius: 4px;
+        }
+
+        .msg.ai {
+            align-self: flex-start;
+            background: #eef2ff;
+            color: #0f172a;
+            border-bottom-left-radius: 4px;
+        }
+
+        .typing {
+            font-style: italic;
+            opacity: .9;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .focus-ring:focus {
+            outline: 3px solid #fde68a;
+            outline-offset: 3px;
+        }
+    </style>
+</head>
+
+<body class="bg-[color:var(--bg)] text-slate-800 min-h-screen selection:bg-[color:var(--accent-2)] selection:text-white"
+    id="page-body">
+
+    <div class="max-w-6xl mx-auto p-6 grid gap-8">
+        <header class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-extrabold" id="app-title">Financial Paycheck Budgeter</h1>
+                <p class="text-sm text-[color:var(--muted)] mt-1">Smart budgeting + an accessible AI assistant in one
+                    interface.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Accessibility controls -->
+                <label class="flex items-center gap-2 text-sm">
+                    <input id="contrast-toggle" type="checkbox" class="focus-ring" aria-label="Toggle high contrast" />
+                    <span class="select-none">High contrast</span>
+                </label>
+
+                <label class="flex items-center gap-2 text-sm">
+                    <select id="text-size" class="border rounded p-1 focus-ring" aria-label="Text size">
+                        <option value="normal">Normal text</option>
+                        <option value="large">Large text</option>
+                        <option value="xlarge">Extra large</option>
+                    </select>
+                </label>
+            </div>
+        </header>
+
+        <!-- MAIN GRID -->
+        <main class="grid grid-cols-1 md:grid-cols-2 gap-6" id="main-grid">
+            <!-- Left: Budget Form -->
+            <section aria-labelledby="budget-heading" class="bg-[color:var(--card)] rounded-lg shadow p-4">
+                <h2 id="budget-heading" class="text-lg font-semibold">Create your budget</h2>
+                <p class="text-sm text-[color:var(--muted)] mt-1">Add categories as fixed amounts or percentages of your
+                    paycheck.</p>
+
+                <div class="mt-4 space-y-3">
+                    <label class="block text-sm font-medium" for="paycheck">Paycheck amount</label>
+                    <input id="paycheck" type="number" inputmode="decimal" min="0" step="0.01"
+                        class="w-full border rounded p-2 focus-ring" aria-describedby="paycheck-help" />
+                    <p id="paycheck-help" class="text-xs text-[color:var(--muted)]">Enter the net (take-home) amount.
+                    </p>
+                </div>
+
+                <!-- Categories -->
+                <div class="mt-4">
+                    <h3 class="text-sm font-medium">Categories</h3>
+                    <ul id="categories-list" class="mt-3 space-y-2" aria-live="polite"></ul>
+
+                    <div class="mt-2 flex gap-2">
+                        <button id="add-row" class="px-3 py-2 bg-[color:var(--accent-1)] text-white rounded focus-ring"
+                            aria-label="Add category">Add category</button>
+                        <button id="clear-all" class="px-3 py-2 border rounded text-[color:var(--muted)] focus-ring"
+                            aria-label="Clear all categories">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Validation / Actions -->
+                <div class="mt-4 flex flex-col gap-2">
+                    <div id="validation-msg" role="alert" class="text-sm text-rose-600 hidden"></div>
+                    <div class="flex gap-2">
+                        <button id="calculate-btn"
+                            class="px-4 py-2 bg-[color:var(--accent-2)] text-white rounded focus-ring">Calculate</button>
+                        <button id="save-btn" class="px-4 py-2 border rounded text-[color:var(--muted)] focus-ring">Send
+                            to backend</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Results & History -->
+            <section aria-labelledby="results-heading" class="bg-[color:var(--card)] rounded-lg shadow p-4">
+                <h2 id="results-heading" class="text-lg font-semibold">Budget & History</h2>
+                <div class="mt-3 grid gap-3">
+                    <div class="p-3 bg-gray-50 rounded" aria-live="polite" id="result-card" role="status">
+                        <h3 class="font-medium">Live calculation</h3>
+                        <pre id="live-result" class="text-sm mt-2 bg-transparent whitespace-pre-wrap"></pre>
+                    </div>
+
+                    <div class="p-3 bg-gray-50 rounded">
+                        <h3 class="font-medium">History</h3>
+                        <div id="history-list" class="text-sm mt-2 max-h-56 overflow-auto"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-xs text-[color:var(--muted)] text-center">
+            Built with accessibility in mind. Keyboard: Tab to focus, Enter to activate. Shortcuts: Ctrl+Shift+K to
+            toggle chat.
+        </footer>
+    </div>
+
+    <!-- CHATBOT: floating launcher + window -->
+    <div id="chat-root" style="position:fixed; right:20px; bottom:20px; z-index:1200;">
+        <button id="chat-launcher"
+            class="chat-launcher bg-gradient-to-br from-[color:var(--accent-1)] to-indigo-700 text-white animate-float focus-ring"
+            aria-haspopup="dialog" aria-expanded="false" aria-controls="chat-window"
+            title="Open assistant (Ctrl+Shift+K)">
+            <!-- Accessible icon (SVG) + visually-hidden label -->
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 3.866-3.582 7-8 7a9 9 0 01-4-.88L3 20l1.88-5.09A7.002 7.002 0 013 12c0-3.866 3.582-7 8-7s8 3.134 8 7z" />
+            </svg>
+            <span class="sr-only">Open chat assistant</span>
+        </button>
+
+        <div id="chat-window" class="chat-window hidden" role="dialog" aria-modal="false" aria-label="Budget assistant"
+            aria-hidden="true">
+            <div class="flex items-center justify-between px-3 py-2 border-b">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-[color:var(--accent-1)] text-white grid place-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 3.866-3.582 7-8 7a9 9 0 01-4-.88L3 20l1.88-5.09A7.002 7.002 0 013 12c0-3.866 3.582-7 8-7s8 3.134 8 7z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-sm font-semibold">Budget Assistant</div>
+                        <div class="text-xs text-[color:var(--muted)]">Ask about budgeting, saving, or your recent
+                            result</div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="chat-min" class="px-2 py-1 rounded text-[color:var(--muted)] focus-ring"
+                        title="Minimize (Esc)">_</button>
+                    <button id="chat-close" class="px-2 py-1 rounded text-[color:var(--muted)] focus-ring"
+                        title="Close">×</button>
+                </div>
+            </div>
+
+            <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+
+            <form id="chat-form" class="px-3 py-2 border-t flex gap-2" autocomplete="off">
+                <input id="chat-input" class="flex-1 border rounded p-2 focus-ring" type="text" inputmode="text"
+                    placeholder="Ask the assistant about your budget..." aria-label="Type message" />
+                <button id="chat-send"
+                    class="px-3 py-2 bg-[color:var(--accent-1)] text-white rounded focus-ring">Send</button>
+            </form>
+        </div>
+    </div>
+
+    <template id="category-template">
+        <li class="flex items-center gap-2 p-2 border rounded" role="group">
+            <input class="cat-name flex-1 border-none focus:outline-none text-sm" placeholder="Category name"
+                aria-label="Category name" />
+            <select class="cat-type border rounded p-1 text-sm focus-ring" aria-label="Category type">
+                <option value="fixed">Fixed</option>
+                <option value="percentage">Percentage</option>
+            </select>
+            <input class="cat-value w-24 border rounded p-1 text-sm focus-ring" type="number" inputmode="decimal"
+                placeholder="Value" aria-label="Category value" />
+            <button class="cat-remove px-2 py-1 text-sm rounded text-rose-600 focus-ring"
+                aria-label="Remove category">Remove</button>
+        </li>
+    </template>
+
+    <script>
+        // Single-file frontend JS: budget UI + chat integration + accessibility features
+        (() => {
+            // Elements & templates
+            const body = document.getElementById('page-body');
+            const paycheckEl = document.getElementById('paycheck');
+            const categoriesList = document.getElementById('categories-list');
+            const addRowBtn = document.getElementById('add-row');
+            const clearAllBtn = document.getElementById('clear-all');
+            const calculateBtn = document.getElementById('calculate-btn');
+            const saveBtn = document.getElementById('save-btn');
+            const validationMsg = document.getElementById('validation-msg');
+            const liveResult = document.getElementById('live-result');
+            const historyList = document.getElementById('history-list');
+            const categoryTemplate = document.getElementById('category-template');
+
+            // Chat elements
+            const chatLauncher = document.getElementById('chat-launcher');
+            const chatWindow = document.getElementById('chat-window');
+            const chatMessages = document.getElementById('chat-messages');
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatMin = document.getElementById('chat-min');
+            const chatClose = document.getElementById('chat-close');
+
+            // Accessibility controls
+            const contrastToggle = document.getElementById('contrast-toggle');
+            const textSize = document.getElementById('text-size');
+
+            // Local state
+            let categories = []; // array of {name,type,value}
+            let conversation = []; // for UI & chat context
+            const STORAGE_KEY = 'budgeter_state_v1';
+            const PREF_KEY = 'budgeter_prefs_v1';
+
+            // Helpers
+            const toFixed = (n) => Number((Math.round((n + Number.EPSILON) * 100) / 100).toFixed(2));
+
+            function createCategoryRow(cat = { name: '', type: 'fixed', value: '' }) {
+                const frag = categoryTemplate.content.cloneNode(true);
+                const li = frag.querySelector('li');
+                const name = frag.querySelector('.cat-name');
+                const type = frag.querySelector('.cat-type');
+                const value = frag.querySelector('.cat-value');
+                const removeBtn = frag.querySelector('.cat-remove');
+
+                name.value = cat.name || '';
+                type.value = cat.type || 'fixed';
+                value.value = (cat.value === 0 || cat.value) ? cat.value : '';
+
+                // events
+                name.addEventListener('input', updateStateFromUI);
+                type.addEventListener('change', updateStateFromUI);
+                value.addEventListener('input', updateStateFromUI);
+                removeBtn.addEventListener('click', () => {
+                    li.remove();
+                    updateStateFromUI();
+                });
+
+                categoriesList.appendChild(li);
+                return li;
+            }
+
+            function updateStateFromUI() {
+                validationMsg.classList.add('hidden');
+                categories = [];
+                const lis = Array.from(categoriesList.querySelectorAll('li'));
+                lis.forEach(li => {
+                    const nm = li.querySelector('.cat-name').value.trim();
+                    const tp = li.querySelector('.cat-type').value;
+                    const valRaw = li.querySelector('.cat-value').value;
+                    const val = valRaw === '' ? '' : parseFloat(valRaw);
+                    if (nm) categories.push({ name: nm, type: tp, value: val });
+                });
+                // live calc
+                renderLiveResult();
+                saveToStorage();
+            }
+
+            function renderLiveResult() {
+                const paycheck = parseFloat(paycheckEl.value || 0);
+                if (!paycheck || categories.length === 0) {
+                    liveResult.textContent = 'No calculation yet.';
+                    return;
+                }
+
+                // compute
+                let totalSpent = 0;
+                const lines = [];
+                let pctSum = 0;
+                categories.forEach(c => {
+                    const type = c.type;
+                    let amount = 0;
+                    if (type === 'percentage' && typeof c.value === 'number' && !isNaN(c.value)) {
+                        amount = (paycheck * (c.value / 100));
+                        pctSum += (isNaN(c.value) ? 0 : c.value);
+                    } else if (type === 'fixed' && typeof c.value === 'number' && !isNaN(c.value)) {
+                        amount = c.value;
+                    }
+                    amount = toFixed(amount);
+                    totalSpent += amount;
+                    lines.push(`${c.name}: $${amount.toLocaleString()}`);
+                });
+
+                const remaining = toFixed(paycheck - totalSpent);
+                liveResult.textContent = lines.join('\n') + `\n\nTotal spent: $${toFixed(totalSpent)}\nRemaining: $${remaining}`;
+
+                // warnings
+                if (pctSum > 100) {
+                    validationMsg.textContent = 'Warning: category percentages sum to more than 100%.';
+                    validationMsg.classList.remove('hidden');
+                } else if (totalSpent > paycheck) {
+                    validationMsg.textContent = 'Warning: total allocated exceeds paycheck.';
+                    validationMsg.classList.remove('hidden');
+                } else {
+                    validationMsg.classList.add('hidden');
+                }
+            }
+
+            function saveToStorage() {
+                const state = {
+                    paycheck: paycheckEl.value,
+                    categories
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            }
+
+            function loadFromStorage() {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                try {
+                    const s = JSON.parse(raw);
+                    paycheckEl.value = s.paycheck || '';
+                    categoriesList.innerHTML = '';
+                    (s.categories || []).forEach(cat => createCategoryRow(cat));
+                    updateStateFromUI();
+                } catch (e) { console.warn('Failed to restore state', e); }
+            }
+
+            // UI actions
+            addRowBtn.addEventListener('click', () => {
+                createCategoryRow({ name: '', type: 'fixed', value: '' });
+            });
+
+            clearAllBtn.addEventListener('click', () => {
+                categoriesList.innerHTML = '';
+                categories = [];
+                renderLiveResult();
+                saveToStorage();
+            });
+
+            paycheckEl.addEventListener('input', () => {
+                updateStateFromUI();
+            });
+
+            calculateBtn.addEventListener('click', () => {
+                renderLiveResult();
+            });
+
+            // Send to backend
+            saveBtn.addEventListener('click', async () => {
+                const paycheck = parseFloat(paycheckEl.value || 0);
+                if (!paycheck) {
+                    validationMsg.textContent = 'Enter a valid paycheck before sending.';
+                    validationMsg.classList.remove('hidden');
+                    return;
+                }
+                // Build payload
+                const payload = {
+                    paycheck,
+                    categories: categories.reduce((acc, c) => {
+                        acc[c.name] = { type: c.type, value: c.value };
+                        return acc;
+                    }, {})
+                };
+
+                try {
+                    const resp = await fetch('/budget', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!resp.ok) {
+                        const txt = await resp.text();
+                        validationMsg.textContent = `Server error: ${resp.status} ${txt}`;
+                        validationMsg.classList.remove('hidden');
+                        return;
+                    }
+                    const data = await resp.json();
+                    // show result card & update history
+                    liveResult.textContent = JSON.stringify(data, null, 2);
+                    await refreshHistory();
+                } catch (err) {
+                    validationMsg.textContent = 'Network error: ' + (err.message || err);
+                    validationMsg.classList.remove('hidden');
+                }
+            });
+
+            // History loading
+            async function refreshHistory() {
+                try {
+                    const resp = await fetch('/history');
+                    if (!resp.ok) return;
+                    const hist = await resp.json();
+                    historyList.innerHTML = hist.length ? hist.map(h => {
+                        const date = (new Date()).toLocaleString();
+                        return `<div class="p-2 border-b last:border-b-0"><div class="text-xs text-[color:var(--muted)]">${date}</div><pre class="text-sm">${JSON.stringify(h.result, null, 2)}</pre></div>`;
+                    }).join('') : '<div class="text-sm text-[color:var(--muted)]">No history yet.</div>';
+                } catch (e) {
+                    historyList.innerHTML = `<div class="text-sm text-rose-600">Failed to load history.</div>`;
+                }
+            }
+
+            // Chat UI behaviors
+            function appendChatMessage(text, who = 'ai') {
+                const el = document.createElement('div');
+                el.className = 'msg ' + (who === 'user' ? 'user' : 'ai');
+                el.textContent = text;
+                chatMessages.appendChild(el);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function showTyping() {
+                const t = document.createElement('div');
+                t.className = 'msg ai typing';
+                t.id = 'typing';
+                t.textContent = 'Assistant is typing…';
+                chatMessages.appendChild(t);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            function removeTyping() {
+                const t = document.getElementById('typing');
+                if (t) t.remove();
+            }
+
+            async function sendChatToServer(message) {
+                appendChatMessage(message, 'user');
+                conversation.push({ role: 'user', text: message });
+                showTyping();
+
+                try {
+                    const resp = await fetch('/ai_chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message, context: conversation })
+                    });
+                    if (!resp.ok) {
+                        const txt = await resp.text();
+                        removeTyping();
+                        appendChatMessage('Server error: ' + (txt || resp.status), 'ai');
+                        return;
+                    }
+                    const payload = await resp.json();
+                    removeTyping();
+                    const reply = payload.reply || 'No reply';
+                    appendChatMessage(reply, 'ai');
+                    conversation.push({ role: 'ai', text: reply });
+                } catch (err) {
+                    removeTyping();
+                    appendChatMessage('Network error: ' + (err.message || err), 'ai');
+                }
+            }
+
+            // Chat launcher toggles
+            function openChat() {
+                chatWindow.classList.remove('hidden');
+                chatWindow.setAttribute('aria-hidden', 'false');
+                chatLauncher.setAttribute('aria-expanded', 'true');
+                chatInput.focus();
+            }
+            function closeChat() {
+                chatWindow.classList.add('hidden');
+                chatWindow.setAttribute('aria-hidden', 'true');
+                chatLauncher.setAttribute('aria-expanded', 'false');
+                chatLauncher.focus();
+            }
+
+            chatLauncher.addEventListener('click', () => {
+                openChat();
+            });
+            chatMin.addEventListener('click', () => {
+                closeChat();
+            });
+            chatClose.addEventListener('click', () => {
+                closeChat();
+            });
+
+            // Chat form
+            chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const text = chatInput.value.trim();
+                if (!text) return;
+                chatInput.value = '';
+                sendChatToServer(text);
+            });
+
+            // Shortcut
+            window.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'k') {
+                    if (chatWindow.classList.contains('hidden')) openChat(); else closeChat();
+                }
+                if (e.key === 'Escape') {
+                    if (!chatWindow.classList.contains('hidden')) closeChat();
+                }
+            });
+
+            // Accessibility prefs
+            contrastToggle.addEventListener('change', (e) => {
+                if (e.target.checked) body.classList.add('high-contrast'); else body.classList.remove('high-contrast');
+                localStorage.setItem(PREF_KEY, JSON.stringify({ highContrast: e.target.checked }));
+            });
+
+            textSize.addEventListener('change', (e) => {
+                const v = e.target.value;
+                body.classList.remove('text-sm', 'text-base', 'text-lg');
+                if (v === 'normal') body.style.fontSize = '';
+                else if (v === 'large') body.style.fontSize = '18px';
+                else if (v === 'xlarge') body.style.fontSize = '20px';
+                localStorage.setItem(PREF_KEY, JSON.stringify({ textSize: v, highContrast: contrastToggle.checked }));
+            });
+
+            function restorePrefs() {
+                try {
+                    const raw = localStorage.getItem(PREF_KEY);
+                    if (!raw) return;
+                    const p = JSON.parse(raw);
+                    if (p.highContrast) { contrastToggle.checked = true; body.classList.add('high-contrast'); }
+                    if (p.textSize) { textSize.value = p.textSize; textSize.dispatchEvent(new Event('change')); }
+                } catch (e) {/*ignore*/ }
+            }
+
+            // Init: load from storage or seed UI
+            function init() {
+                restorePrefs();
+                loadFromStorage();
+                if (categoriesList.children.length === 0) {
+                    // seed with helpful rows
+                    createCategoryRow({ name: 'Rent', type: 'fixed', value: '' });
+                    createCategoryRow({ name: 'Savings', type: 'percentage', value: 20 });
+                }
+                updateStateFromUI();
+                refreshHistory();
+                // greet in chat
+                appendChatMessage('Hi — I am your budget assistant. Ask me about budgeting, savings, or your recent calculations!', 'ai');
+            }
+
+            init();
+        })();
+    </script>
+</body>
+
+</html>

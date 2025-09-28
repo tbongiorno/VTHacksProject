@@ -1,4 +1,4 @@
-import requests
+import templates.requests as requests
 
 paycheck = int(input("Enter your paycheck: "))
 
@@ -57,13 +57,13 @@ payload = {
 }
 
 try:
-    response = requests.post("http://127.0.0.1:5001/budget", json=payload)
+    response = requests.post("http://127.0.0.1:5500/budget", json=payload)
     print("\nBudget result:", response.json())
 except Exception as e:
     print(f"Error connecting to backend: {e}")
 
 try:
-    history = requests.get("http://127.0.0.1:5001/history")
+    history = requests.get("http://127.0.0.1:5500/history")
     print("\nHistory:", history.json())
 except Exception as e:
     print(f"Error fetching history: {e}")
