@@ -1,4 +1,4 @@
-# Allocate Mate 🎧
+# Allocate Mate 💲
 
 _Automatic Financial Paycheck Budgeter and Advisor._
 
