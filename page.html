@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uswds@3.7.0/dist/css/uswds.min.css">
+    <title>Front Page</title>
+
+</head>
+
+<body>
+    <div>
+        <header class="heading">
+            <h1>Hello There User!</h1>
+            <nav class="heading-buttons">
+                <button type="button" onclick="showTab('input')">Input Paycheck</button>
+                <button type="button" onclick="showTab('edit')">Edit Settings</button>
+                <button type="button" onclick="showTab('ai')">Ask AI</button>
+            </nav>
+        </header>
+
+        <br /><br /><br />
+
+        <!-- Input paycheck tab -->
+        <section id="input" class="tab-content active">
+            <h2>Enter Paycheck in Dollars:</h2>
+            <form id="paycheck-form">
+                <input type="text" id="paycheck" name="paycheck" /><br/><br/>
+                <button type="submit">Submit</button>
+            </form>
+            <p id="response"></p>
+
+            <div id="split-result"></div>
+        </section>
+
+        <!-- Edit settings tab -->
+        <section id="edit" class="tab-content">
+            <!-- Left: Existing categories -->
+            <div style="flex: 1;">
+                <h2>Edit Your Category Splits</h2>
+                <form id="settings-form">
+                    <div id="settings-container"></div>
+                    <button type="submit">Save Changes</button>
+                </form>
+                <p id="save-message"></p>
+            </div>
+
+            <!-- Right: Add new category -->
+            <div style="flex: 1;">
+                <h2>Add New Category</h2>
+                <form id="add-category-form" class="usa-form">
+                    <label class="usa-label" for="new-category-name">Category Name:</label><br />
+                    <input class="usa-input" type="text" id="new-category-name" name="new-category-name" required /><br /><br />
+
+                    <label class="usa-label" for="new-category-value">Value (%):</label><br />
+                    <input class="usa-input" type="number" id="new-category-value" name="new-category-value" min="0" step="any"
+                        required /><br /><br />
+
+                    <!-- Limit input hidden by default -->
+                    <div id="limit-input-container" style="display:none;">
+                        <label class="usa-label" for="category-limit" >Set Limit ($):</label><br />
+                        <input class="usa-input" type="number" id="category-limit" name="category-limit" min="0" step="any" /><br /><br />
+                    </div>
+
+                    <label for="category-toggle">Type:</label><br />
+                    <div id="category-toggle" class="toggle-slider" tabindex="0" role="switch" aria-checked="true"
+                        aria-label="Select category type">
+                        <div class="toggle-knob"></div>
+                        <span class="toggle-label-left active">%</span>
+                        <span class="toggle-label-right">$</span>
+                    </div>
+                    <input type="hidden" id="category-type" name="category-type" value="percent" /><br /><br />
+
+                    <button type="submit">Add Category</button>
+                    <p id="add-message"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- AI tab -->
+        <section id="ai" class="tab-content">
+            <h2>Talk to AI Here</h2>
+            <div id="chat-box" class="chat-box"></div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Type your message"/>
+                <button id="send-btn">send-btn</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- External JS file -->
+    <script src="script.js"></script>
+</body>
+
+</html>
